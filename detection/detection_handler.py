@@ -5,11 +5,12 @@ import time
 from email_sender.sender import Sender
 from detection.detection_type import car_detection, human_detection
 class DetectionHandler:
-    def __init__(self, detection_type, cap: cv2.VideoCapture):
+    def __init__(self, detection_type, stream_app):
         self.detection_type = detection_type
-        self.cap = cap
+        self.stream_app = stream_app
         self.detector = self.load_detection_model()
         self.email_sender = Sender()
+        self.stop_flag = False
 
 
     def load_detection_model(self):
@@ -19,26 +20,17 @@ class DetectionHandler:
             return car_detection.CarDetection()  # Create an instance
         return None
 
-    def start_stream(self, stream_url):
-        self.stop_flag = False
-        if not self.cap.isOpened():
-            print(f"Error: Unable to open stream {stream_url}")
-            return
-        print("Reading from stream " + stream_url)
-
     def run_detection(self, to_email):
         """Read frames from the stream at specified intervals and perform human detection."""
         try:
             while not self.stop_flag:
                 # Read a frame from the stream
-                ret, frame = self.cap.read()
-                if not ret:
-                    print("Failed to grab frame.")
-                    continue  # Skip to the next iteration
+                if not self.stream_app.frame_queue.empty():
+                    frame =  self.stream_app.frame_queue.get()
 
                 bounding_boxes, metadata = None, None
                 if self.detector is not None and frame is not None:
-                    bounding_boxes, metadata = self.detector.detect(frame)  
+                    bounding_boxes, metadata = self.detector.detect(frame, 0.75)  
                 else:
                     print("Detection model not available.")
 
@@ -63,14 +55,6 @@ class DetectionHandler:
         except Exception as e:
             print(f'Fail to run detection: {e}')
 
-            
-
-    def stop_reading_stream(self):
-        """Stop the video stream."""
-        self.stop_flag = True
-        if self.cap is not None:
-            self.cap.release()
-        cv2.destroyAllWindows()
 
     def join_thread(self):
         """Join the stream thread if needed."""
@@ -81,12 +65,19 @@ class DetectionHandler:
     @staticmethod
     def draw_bounding_boxes(image, bounding_boxes, metadata):
         for i, box in enumerate(bounding_boxes):
-            x, y, w, h = box
+            x1, y1, x2, y2 = box  # Unpack the bounding box coordinates
             label = metadata[i].get("label", "Object")
             confidence = metadata[i].get("confidence", 0)
-            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            text = f"{label}: {confidence:.2f}"
-            cv2.putText(image, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+            # Draw the rectangle using the coordinates
+            cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+
+            # # Prepare the label text
+            # text = f"{label}: {confidence:.2f}"
+
+            # # # Draw the label text above the bounding box
+            # # cv2.putText(image, text, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
         return image
 
     @staticmethod

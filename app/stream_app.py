@@ -1,9 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
 import cv2
-from threading import Thread
+from threading import Lock, Thread
 from PIL import Image, ImageTk
 from time import sleep, time
+from queue import Queue
 from datetime import datetime
 from tkcalendar import DateEntry
 from detection.scheduler import Scheduler
@@ -33,10 +34,11 @@ class StreamApp:
         self.selected_stream = None
         self.cap = None
         self.stop_flag = False  # Control flag for stopping the stream
-
+        self.frame_queue = Queue(maxsize=10)  # A queue to hold frames
         # Set up the UI
         self.setup_ui()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.mutex = Lock()
 
     def setup_ui(self):
         # Left frame for stream selection
@@ -132,8 +134,10 @@ class StreamApp:
     def load_stream_list(self):
         # Populate the stream list with channel URLs
         channels = self.multi_stream.channel_manager.get_channels()
+        print(channels)
         for channel in channels:
             self.stream_list.insert(tk.END, channel['name'])
+        
 
     def start_stream(self):
         # Get the selected stream from the list
@@ -151,20 +155,15 @@ class StreamApp:
                 self.selected_channel_url = channel.get('channel_url')
         print(self.selected_channel_url)
         # If a stream is already running, stop it first
-        if self.cap:
-            self.stop_stream()
-            self.stream_thread = None
-
-        # Set the stop flag to False and start a new thread to read the stream
-        self.stop_flag = False
-        self.cap = cv2.VideoCapture(self.selected_channel_url)
-        self.stream_thread = Thread(target=self.update_frame, args=(self.cap,))
+        
+        self.stream_thread = Thread(target=self.update_frame)
         self.stream_thread.daemon = True  # Daemonize the thread
         self.stream_thread.start()
 
     def switch_stream(self, event):
         # Switch to a new stream based on the selected item in the list
         self.start_stream()
+        
 
     def on_task_selected(self, event):
         # Determine the selected task
@@ -201,34 +200,46 @@ class StreamApp:
 
         # Create schedule for that task in a separate thread
         task_id = f'{detection_mapping[selected_task]}_{str(time())[:5]}'
-        thread = Thread(target=self.activate_detection, args=(stream_url, selected_task, task_id, email, start_timestamp, end_timestamp))
+        thread = Thread(target=self.activate_detection, args=(selected_task, task_id, email, start_timestamp, end_timestamp))
         thread.start()
 
-    def activate_detection(self, stream_url, selected_task, task_id, email, start_timestamp, end_timestamp):
+    def activate_detection(self, selected_task, task_id, email, start_timestamp, end_timestamp):
         # This activates the detection flow without pausing the app by using a thread
 
-        # start_timestamp = self.convert_to_timestamp(start_time, start_date)
-        # end_timestamp = self.convert_to_timestamp(end_time, end_date)
-        # self.scheduler.add_job(task_details,self.detection_handler.run_detection(email),start_timestamp, end_timestamp)
-
         # Initialize Detection Handler
-        self.detection_handler = DetectionHandler(detection_mapping[selected_task], self.cap)
-        self.detection_handler.start_stream(stream_url)
-        sleep(3) # Wait for the stream to load
-
+        self.detection_handler = DetectionHandler(detection_mapping[selected_task], self)
         # Add the detection job to the scheduler
         self.scheduler.add_job(task_id, self.detection_handler.run_detection, start_timestamp, end_timestamp, email)
         print(f"Detection activated for task: {task_id}")
 
 
-    def update_frame(self, cap):
+    def update_frame(self):
         try:
+            if self.cap:
+                self.stop_stream()
+                self.stream_thread = None
+            # Set the stop flag to False and start a new thread to read the stream
+            self.stop_flag = False
+            self.cap = cv2.VideoCapture(self.selected_channel_url)
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            print("Start cap")
+            sleep(1)
+            print("Start read")
+            self.mutex.acquire()
+            retry = 3
             while not self.stop_flag:
-                ret, frame = cap.read()
+                if retry <= 0: 
+                    print("Out of retry")
+                    self.cap.release()
+                    return 
+                
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                ret, frame = self.cap.read()
                 if not ret:
                     print("Error: Unable to read frame from the stream.")
-                    sleep(1)
-                    break
+                    sleep(0.1)
+                    retry -= 1
+                    continue
 
                 # Get the current timestamp
                 current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -242,6 +253,13 @@ class StreamApp:
                 image = Image.fromarray(frame_rgb)
                 image_tk = ImageTk.PhotoImage(image=image)
 
+                if not self.frame_queue.full():
+                    self.frame_queue.put(frame)
+                else:
+                    self.frame_queue.get()
+                    self.frame_queue.put(frame)
+
+                
                 # Update the Canvas with the new frame in a thread-safe manner
                 self.video_canvas.create_image(0, 0, anchor=tk.NW, image=image_tk)
                 self.video_canvas.image = image_tk
@@ -249,10 +267,12 @@ class StreamApp:
 
 
             # Release the capture once the loop is over
-            cap.release()
+            self.cap.release()
         except Exception as e:
             print(f"Error occurred: {e}")
-            cap.release()
+            self.cap.release()
+        finally:
+            self.mutex.release()
 
     def stop_stream(self):
         # Stop the current stream

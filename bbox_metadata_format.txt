@@ -1,0 +1,10 @@
+# Example of bounding boxes and metadata
+bounding_boxes = [
+    [x1, y1, x2, y2],  # For example: [100, 50, 200, 150]
+    ...
+]
+
+metadata = [
+    {"label": "Person", "confidence": 0.95},  # Confidence score for this detection
+    ...
+]

@@ -4,7 +4,7 @@ def main():
     # URL or camera index for video capture
     # Replace '0' with the URL of your video stream or IP camera
     # For example: 'http://192.168.1.2:8080/video' for an IP camera
-    stream_source = "udp://127.0.0.1:12346"  # '0' is typically the default webcam; change as needed
+    stream_source = "udp://127.0.0.1:12345"  # '0' is typically the default webcam; change as needed
 
     # Create a VideoCapture object
     cap = cv2.VideoCapture(stream_source)

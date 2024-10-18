@@ -26,12 +26,15 @@ class MultiStream:
             '-re',  # Read input video in real-time
             '-i', input_video_path,  # Input file path
             '-c:v', 'libx264',  # Encode video with H.264 codec
-            '-preset', 'veryfast',  # Use a fast preset for streaming
+            '-preset', 'ultrafast',  # Use the ultrafast preset for streaming
+            '-fflags', 'nobuffer',  # Disable buffering
+            '-flags', 'low_delay',  # Low delay
             '-f', 'mpegts',  # Format for streaming
             '-loglevel', 'quiet',  # Suppress all logs
             '-threads', '1',  # Use a single thread for decoding
             udp_url  # UDP URL
         ]
+
 
         # Run the command as a subprocess and redirect stdout and stderr to DEVNULL
         try:

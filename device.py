@@ -10,7 +10,7 @@ class StreamController:
     def start_streams(self):
         try:
             # Add streams
-            self.multi_stream.add_stream("Stream 1", "udp://127.0.0.1:12345", "./video/loitering_people.webm")
+            self.multi_stream.add_stream("Stream 1", "udp://127.0.0.1:12345", "./video/loitering_people.mp4")
             self.multi_stream.add_stream("Stream 2", "udp://127.0.0.1:12346", "./video/loitering_people_extra.mp4")
             
             # Start all streams
