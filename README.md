@@ -59,14 +59,15 @@ To run the project:
 
 1. Create a folder named `model` in the root directory.
 2. Add the `yolov8m.pt` file into the `model` folder.
-3. Install all required libraries by running:
+3. Create the `.env` file to the root and add EMAIL_APP_ACCOUNT and EMAIL_APP_PASSWORD
+4. Install all required libraries by running:
    pip install -r requirements.txt
-4. Run `device.py` to start the stream.
-5. Finally, run `main.py` to start the application and enjoy!
+5. Run `device.py` to start the stream.
+6. Finally, run `main.py` to start the application and enjoy!
 
 ### Note:
 There is a known bug with the stream selection. If the stream does not pop up after selection, try selecting a different option to make it work.
-Also there is just human_detection is working other model handle will be update later
+Also, there is just human_detection is working other model handle will be updated later
 
 ## 5. Troubleshooting
 
