@@ -20,38 +20,53 @@ class DetectionHandler:
             return car_detection.CarDetection()  # Create an instance
         return None
 
-    def run_detection(self, to_email):
+    def run_detection(self, to_email, stream_url, stop_time):
         """Read frames from the stream at specified intervals and perform human detection."""
+        
         try:
-            while not self.stop_flag:
-                # Read a frame from the stream
-                if not self.stream_app.frame_queue.empty():
-                    frame =  self.stream_app.frame_queue.get()
+            while True:
+                retry = 12
+                cap = cv2.VideoCapture(stream_url)
+                while not self.stop_flag and retry > 0:
+                    if time.time() > stop_time:
+                        return False
 
-                bounding_boxes, metadata = None, None
-                if self.detector is not None and frame is not None:
-                    bounding_boxes, metadata = self.detector.detect(frame, 0.75)  
-                else:
-                    print("Detection model not available.")
+                    # Read a frame from the stream
+                    if not cap.isOpened():
+                        print("Error: Could not open the video stream.")
+                        retry -= 1
+                        continue
 
-                if bounding_boxes:
-                    # Get the frame with bounding boxes
-                    frame_with_boxes = self.draw_bounding_boxes(frame, bounding_boxes, metadata) 
+                    ret, frame = cap.read()
+                    if not ret:
+                        print("Error: Cannot read frame from the stream.")
+                        retry -= 1
+                        continue
 
-                    # Generate image save path 
-                    img_id = str(time.time())[:5]
-                    img_path = f"output/detected_frame_{self.detection_type}_{img_id}.jpg"  
+                    bounding_boxes, metadata = None, None
+                    if self.detector is not None and frame is not None:
+                        bounding_boxes, metadata = self.detector.detect(frame, 0.75)  
+                    else:
+                        print("Detection model not available.")
 
-                    # Save the frame 
-                    cv2.imwrite(img_path, frame_with_boxes)
+                    if bounding_boxes:
+                        # Get the frame with bounding boxes
+                        frame_with_boxes = self.draw_bounding_boxes(frame, bounding_boxes, metadata) 
 
-                    # Send email and end the process
-                    self.email_sender.send_custom_email(to_email, self.detection_type, img_path)
-                    return True
+                        # Generate image save path 
+                        img_id = str(time.time())
+                        img_path = f"output/detected_frame_{self.detection_type}_{img_id}.jpg"  
 
-                # Sleep for the specified interval
-                time.sleep(1)
+                        # Save the frame 
+                        cv2.imwrite(img_path, frame_with_boxes)
 
+                        # Send email and end the process
+                        self.email_sender.send_custom_email(to_email, self.detection_type, img_path)
+                        return True
+
+                    # Sleep for the specified interval
+                    time.sleep(1)
+                    break
         except Exception as e:
             print(f'Fail to run detection: {e}')
 

@@ -1,28 +1,38 @@
-# main.py
+# test_scheduler.py
 
 import time
 from detection.scheduler import Scheduler
 
-def detection_task():
-    print("Running detection task...")
+def test_function(message):
+    """A simple function to be scheduled that prints a message."""
+    print(message)
+    while True:
+        print("still going")
+        time.sleep(1)
+    # Return True to indicate successful execution
 
-# Initialize the job scheduler
-scheduler = Scheduler()
+if __name__ == "__main__":
+    # Create a Scheduler instance
+    scheduler = Scheduler()
 
-# Start the scheduler
-scheduler.start_scheduler()
+    # Get the current time
+    current_time = time.time()
 
-# Add a new job to run the detection task every 5 seconds for 30 seconds
-job_id = "detection_1"
-interval = 5  # Run every 5 seconds
-end_time = time.time() + 20  # Run for 30 seconds
+    # Set the start time to 30 seconds from now
+    start_time = current_time + 5
+    # Set the end time to 60 seconds from now
+    end_time = current_time + 10
 
-scheduler.add_job(job_id, detection_task, interval, end_time)
+    # Add a job to the scheduler
+    scheduler.add_job(
+        job_id="test_job",
+        func=test_function,
+        start_time=start_time,
+        end_time=end_time,
+        message="This is a test message running after 30 seconds."
+    )
 
-# List all jobs
-scheduler.list_jobs()
-
-# Example: Delete the job after 15 seconds
-time.sleep(30)
-# scheduler.delete_job(job_id)
-scheduler.list_jobs()
+    # Keep the main thread running to allow the scheduler to execute jobs
+    while True:
+        time.sleep(1)
+        

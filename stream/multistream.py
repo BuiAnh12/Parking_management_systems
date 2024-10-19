@@ -1,66 +1,70 @@
 import threading
 import subprocess
+import cv2
 from stream.channel import Channel
-import datetime
+import os
+
 class MultiStream:
     def __init__(self):
         self.channel_manager = Channel()
         self.processes = []  # List to keep track of streaming processes
+        self.threads = []  # List to keep track of threads
 
-    def add_stream(self, name, channel_url, video_file):
-        self.channel_manager.add_channel(name, channel_url, video_file)
+    def add_stream(self, name, display_channel_url, detect_channel_url, video_file):
+        self.channel_manager.add_channel(name, display_channel_url, detect_channel_url, video_file)
 
     def start_all_streams(self):
         # Get all channels and start streaming them
         channels = self.channel_manager.get_channels()
         for channel in channels:
-            # Start streaming in a separate thread
-            thread = threading.Thread(target=self._start_streaming_process, args=(channel['video_file'], channel['channel_url']))
-            thread.start()
+            # Start streaming in a separate thread for both display and detection
+            display_thread = threading.Thread(target=self._start_streaming_process, args=(channel['name'], channel['video_file'], channel['display_channel_url']))
+            detect_thread = threading.Thread(target=self._start_streaming_process, args=(channel['name'], channel['video_file'], channel['detect_channel_url']))
+            display_thread.start()
+            detect_thread.start()
+            self.threads.extend([display_thread, detect_thread])
 
-    def _start_streaming_process(self, input_video_path, udp_url):
-        # Use FFmpeg to stream the video using UDP
+    def _start_streaming_process(self, name, input_video_path, udp_url):
         command = [
             'ffmpeg',
-            '-stream_loop', '-1',  # Loop the input video infinitely
-            '-re',  # Read input video in real-time
-            '-i', input_video_path,  # Input file path
-            '-c:v', 'libx264',  # Encode video with H.264 codec
-            '-preset', 'ultrafast',  # Use the ultrafast preset for streaming
-            '-fflags', 'nobuffer',  # Disable buffering
-            '-flags', 'low_delay',  # Low delay
-            '-f', 'mpegts',  # Format for streaming
+            '-re',
+            '-stream_loop', '-1',
+            '-i', input_video_path,
+            '-s', '640x360',
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-b:v', '500k',
+            '-f', 'mpegts',
             '-loglevel', 'quiet',  # Suppress all logs
-            '-threads', '1',  # Use a single thread for decoding
-            udp_url  # UDP URL
+            '-threads', '1',
+            udp_url
         ]
-
 
         # Run the command as a subprocess and redirect stdout and stderr to DEVNULL
         try:
-            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            self.processes.append(process)
+            with open(os.devnull, 'w') as fnull:
+                process = subprocess.Popen(command, stdout=fnull, stderr=fnull)
+                self.processes.append({'name': name, 'url': udp_url, 'process': process})
         except Exception as e:
-            print(f"An error occurred while starting the stream: {e}")
+            print(f"An error occurred while starting the stream for {name}: {e}")
 
     def stop_all_streams(self):
-        for process in self.processes:
-            process.terminate()
+        for process_info in self.processes:
+            process_info['process'].terminate()
         self.processes = []
         print("All streams have been stopped.")
 
     def check_stream_status(self):
         # Check the status of all streaming processes
         status = []
-        for idx, process in enumerate(self.processes):
-            if process.poll() is None:
-                status.append((idx, "Running"))
+        for process_info in self.processes:
+            if process_info['process'].poll() is None:
+                status.append((process_info['url'], "Running"))
             else:
-                status.append((idx, "Stopped"))
+                status.append((process_info['url'], "Stopped"))
 
         # Display the status
-        for idx, state in status:
-            print(f"Stream {idx}: {state}")
+        for name, state in status:
+            print(f"Stream {name}: {state}")
 
-        # Optionally, return the status list for further processing
         return status

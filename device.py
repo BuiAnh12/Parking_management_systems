@@ -1,17 +1,24 @@
+import subprocess
 from stream.multistream import MultiStream
 import threading
 import time
+import cv2
+import logging
+import requests
+
+logging.getLogger('opencv').setLevel(logging.ERROR)
 
 class StreamController:
     def __init__(self):
         self.multi_stream = MultiStream()
         self.is_running = False
+        self.processes = []  # List to keep track of streaming processes
 
     def start_streams(self):
         try:
             # Add streams
-            self.multi_stream.add_stream("Stream 1", "udp://127.0.0.1:12345", "./video/loitering_people.mp4")
-            self.multi_stream.add_stream("Stream 2", "udp://127.0.0.1:12346", "./video/loitering_people_extra.mp4")
+            self.multi_stream.add_stream("Stream 1", "udp://127.0.0.1:10001", "udp://127.0.0.1:10002", "./video/loitering_people.mp4")
+            self.multi_stream.add_stream("Stream 2", "udp://127.0.0.1:10003", "udp://127.0.0.1:10004", "./video/loitering_people_extra.mp4")
             
             # Start all streams
             self.multi_stream.start_all_streams()
@@ -50,7 +57,7 @@ def menu(controller):
             controller.stop_streams()
             continue
         elif choice == "3":
-            print("Number of online stream: ", len(controller.multi_stream.processes))
+            print("Number of online streams: ", len(controller.multi_stream.processes))
             controller.multi_stream.check_stream_status()
         elif choice == '4':
             controller.stop_streams()
