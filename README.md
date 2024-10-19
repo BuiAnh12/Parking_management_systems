@@ -17,6 +17,7 @@ Our computer vision pipeline consists of the following main stages:
 - Detection
 - Sending Email
 
+![Pipeline](./image.png)
 
 ## 3. Detailed Pipeline Stages
 
