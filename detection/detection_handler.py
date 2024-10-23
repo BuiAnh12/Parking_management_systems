@@ -3,7 +3,7 @@ from threading import Thread
 import cv2
 import time 
 from email_sender.sender import Sender
-from detection.detection_type import car_detection, human_detection
+from detection.detection_type import car_detection, human_detection, loitering_people_detection, loitering_vehicle_detection
 class DetectionHandler:
     def __init__(self, detection_type, stream_app):
         self.detection_type = detection_type
@@ -18,6 +18,11 @@ class DetectionHandler:
             return human_detection.HumanDetection()  # Create an instance
         elif self.detection_type == 'car':
             return car_detection.CarDetection()  # Create an instance
+        elif self.detection_type == 'loitering_people':
+            return loitering_people_detection.LoiteringDetector()
+        elif self.detection_type == 'loitering_vehicle':
+            return loitering_vehicle_detection.LoiteringDetector()
+
         return None
 
     def run_detection(self, to_email, stream_url, stop_time):

@@ -20,6 +20,8 @@ from contextlib import redirect_stderr
 detection_mapping = {
     "Detect People": "human",
     "Detect Vehicle": "car",
+    "Detect Loitering People":"loitering_people",
+    "Detect Loitering Vehicle": "loitering_vehicle"
 }
 
 
@@ -76,7 +78,7 @@ class StreamApp:
         self.task_label.pack(anchor=tk.W, padx=5)
 
         # Dropdown for task selection (using Combobox as a placeholder)
-        self.task_options = ["Detect People", "Detect Vehicle", "Other Mission 1", "Other Mission 2"]
+        self.task_options = ["Detect People", "Detect Vehicle", "Detect Loitering People", "Detect Loitering Vehicle"]
         self.task_combobox = ttk.Combobox(self.task_frame, values=self.task_options)
         self.task_combobox.pack(fill=tk.X, padx=5, pady=5)
         self.task_combobox.current(0)  # Set the default selection
@@ -211,14 +213,18 @@ class StreamApp:
 
     def activate_detection(self, selected_task, task_id, email, start_timestamp, end_timestamp, stream_url):
         # This activates the detection flow without pausing the app by using a thread
+        try:
+            # Initialize Detection Handler
+            self.detection_handler = DetectionHandler(detection_mapping[selected_task], self)
+            print("DETECT HANELER")
+            print(self.detection_handler.detector.__class__.__name__)
+            # Add the detection job to the scheduler
+            self.scheduler.add_job(task_id, self.detection_handler.run_detection, start_timestamp, email, stream_url, end_timestamp)
 
-        # Initialize Detection Handler
-        self.detection_handler = DetectionHandler(detection_mapping[selected_task], self)
-        # Add the detection job to the scheduler
-        self.scheduler.add_job(task_id, self.detection_handler.run_detection, start_timestamp, email, stream_url, end_timestamp)
 
-
-        print(f"Detection activated for task: {task_id}")
+            print(f"Detection activated for task: {task_id}")
+        except Exception as e:
+            print(e)
 
 
     def update_frame(self):
