@@ -4,6 +4,7 @@ import cv2
 import time 
 from email_sender.sender import Sender
 from detection.detection_type import car_detection, human_detection, loitering_people_detection, loitering_vehicle_detection
+from s3_sender.sender import S3Uploader
 class DetectionHandler:
     def __init__(self, detection_type, stream_app):
         self.detection_type = detection_type
@@ -67,6 +68,8 @@ class DetectionHandler:
 
                         # Send email and end the process
                         self.email_sender.send_custom_email(to_email, self.detection_type, img_path)
+                        uploader = S3Uploader()
+                        uploader.upload_picture(img_path)
                         return True
 
                     # Sleep for the specified interval
